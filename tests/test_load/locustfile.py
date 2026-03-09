@@ -50,11 +50,11 @@ class URLShortenerUser(HttpUser):
         )
         
         if response.status_code == 201:
-            # Login
+            # Login (FastAPI Users uses /auth/jwt/login)
             response = self.client.post(
-                "/auth/login",
+                "/auth/jwt/login",
                 data={
-                    "username": username,
+                    "username": email,  # FastAPI Users uses email for auth
                     "password": password
                 }
             )

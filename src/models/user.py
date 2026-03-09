@@ -19,8 +19,8 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     __tablename__ = "users"
     
     username = Column(String(100), unique=True, index=True, nullable=False)
-    created_at = Column(DateTime, default=utc_now)
-    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
+    created_at = Column(DateTime(timezone=True), default=utc_now)
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
     
     # Relationship with links
     links = relationship("Link", back_populates="owner", cascade="all, delete-orphan")

@@ -39,3 +39,6 @@ locust==2.23.1
 
 # Utilities
 python-multipart==0.0.9
+
+# Rate limiting
+slowapi==0.1.9

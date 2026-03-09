@@ -206,6 +206,62 @@ class TestUpdateLink:
         )
         
         assert response.status_code == 404
+    
+    async def test_update_link_duplicate_alias(
+        self, client: AsyncClient, auth_headers, test_link, test_link_with_alias
+    ):
+        """Test updating link with duplicate custom alias."""
+        response = await client.put(
+            f"/links/{test_link.short_code}",
+            headers=auth_headers,
+            json={"custom_alias": "my-custom-alias"}  # Already used by test_link_with_alias
+        )
+        
+        assert response.status_code == 400
+        assert "already exists" in response.json()["detail"]
+    
+    async def test_update_link_custom_alias(
+        self, client: AsyncClient, auth_headers, test_link
+    ):
+        """Test updating link custom alias."""
+        response = await client.put(
+            f"/links/{test_link.short_code}",
+            headers=auth_headers,
+            json={"custom_alias": "new-unique-alias"}
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["custom_alias"] == "new-unique-alias"
+    
+    async def test_update_link_expires_at(
+        self, client: AsyncClient, auth_headers, test_link
+    ):
+        """Test updating link expiration."""
+        from datetime import datetime, timedelta
+        new_expires = (datetime.utcnow() + timedelta(days=30)).isoformat()
+        
+        response = await client.put(
+            f"/links/{test_link.short_code}",
+            headers=auth_headers,
+            json={"expires_at": new_expires}
+        )
+        
+        assert response.status_code == 200
+    
+    async def test_update_link_project(
+        self, client: AsyncClient, auth_headers, test_link
+    ):
+        """Test updating link project."""
+        response = await client.put(
+            f"/links/{test_link.short_code}",
+            headers=auth_headers,
+            json={"project": "new-project"}
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["project"] == "new-project"
 
 
 @pytest.mark.asyncio
@@ -351,6 +407,89 @@ class TestUserLinks:
         response = await client.get("/links/user/my-links")
         
         assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+class TestAdminEndpoints:
+    """Tests for admin cleanup endpoints."""
+    
+    async def test_cleanup_expired_links(
+        self, client: AsyncClient, auth_headers
+    ):
+        """Test cleanup expired links endpoint."""
+        response = await client.post(
+            "/links/admin/cleanup/expired",
+            headers=auth_headers
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert "deleted" in data
+    
+    async def test_cleanup_unused_links(
+        self, client: AsyncClient, auth_headers
+    ):
+        """Test cleanup unused links endpoint."""
+        response = await client.post(
+            "/links/admin/cleanup/unused?days=30",
+            headers=auth_headers
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert "deleted" in data
+    
+    async def test_get_expired_history(
+        self, client: AsyncClient, auth_headers
+    ):
+        """Test getting expired links history."""
+        response = await client.get(
+            "/links/admin/expired-history",
+            headers=auth_headers
+        )
+        
+        assert response.status_code == 200
+        assert isinstance(response.json(), list)
+    
+    async def test_cleanup_unauthorized(self, client: AsyncClient):
+        """Test cleanup endpoints require authentication."""
+        response = await client.post("/links/admin/cleanup/expired")
+        assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+class TestProjectLinks:
+    """Tests for project-related link endpoints."""
+    
+    async def test_get_project_links(
+        self, client: AsyncClient, auth_headers
+    ):
+        """Test getting links by project."""
+        # First create a link with project
+        await client.post(
+            "/links/shorten",
+            headers=auth_headers,
+            json={
+                "original_url": "https://example.com/project-link",
+                "project": "test-project"
+            }
+        )
+        
+        response = await client.get(
+            "/links/project/test-project",
+            headers=auth_headers
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+    
+    async def test_get_project_links_empty(self, client: AsyncClient):
+        """Test getting links for empty project."""
+        response = await client.get("/links/project/nonexistent-project")
+        
+        assert response.status_code == 200
+        assert response.json() == []
 
 
 @pytest.mark.asyncio

@@ -1,7 +1,10 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException, status, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import get_settings
@@ -9,9 +12,21 @@ from src.database import create_tables, get_db
 from src.routers import auth_router, links_router
 from src.services.cache_service import get_cache_service, CacheService
 from src.services.link_service import LinkService
+from src.utils.url_helpers import get_base_url
 
 # Получение настроек приложения
 settings = get_settings()
+
+# Rate limiter
+limiter = Limiter(key_func=get_remote_address)
+
+
+def get_link_service(
+    db: AsyncSession = Depends(get_db),
+    cache: CacheService = Depends(get_cache_service)
+) -> LinkService:
+    """Dependency for LinkService."""
+    return LinkService(db, cache)
 
 
 @asynccontextmanager # Декоратор контекстного менеджера для асинхронного управления ресурсами
@@ -32,12 +47,26 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS middleware - это 
+# Add rate limiter
+app.state.limiter = limiter
+
+
+def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
+    """Handler for rate limit exceeded errors."""
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "Rate limit exceeded"}
+    )
+
+
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+
+# CORS middleware configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -66,8 +95,7 @@ async def health_check():
 async def redirect_to_original(
     short_code: str,
     request: Request,
-    db: AsyncSession = Depends(get_db),
-    cache: CacheService = Depends(get_cache_service)
+    link_service: LinkService = Depends(get_link_service)
 ):
     """
     Redirect to the original URL.
@@ -83,7 +111,8 @@ async def redirect_to_original(
             detail="Invalid short code"
         )
     
-    link_service = LinkService(db, cache)
+    base_url = get_base_url(request)
+    original_url = await link_service.get_original_url(short_code, base_url)
     base_url = str(request.base_url).rstrip("/")
     original_url = await link_service.get_original_url(short_code, base_url)
     

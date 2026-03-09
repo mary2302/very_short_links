@@ -12,14 +12,17 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     
     # JWT Authentication
-    secret_key: str = "super-secret-key"
+    secret_key: str  # Required, no default!
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     
     # Application settings
     app_host: str = "0.0.0.0"
     app_port: int = 8000
-    debug: bool = True
+    debug: bool = False
+    
+    # CORS
+    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:8000"]
     
     # Link settings
     default_link_expiry_days: int = 30

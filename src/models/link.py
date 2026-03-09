@@ -2,8 +2,7 @@
 
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Uuid
 from sqlalchemy.orm import relationship
 from src.database import Base
 
@@ -25,18 +24,18 @@ class Link(Base):
     
     # Statistics
     click_count = Column(Integer, default=0)
-    last_accessed_at = Column(DateTime, nullable=True)
+    last_accessed_at = Column(DateTime(timezone=True), nullable=True)
     
     # Timestamps
-    created_at = Column(DateTime, default=utc_now)
-    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
-    expires_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utc_now)
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+    expires_at = Column(DateTime(timezone=True), nullable=True)
     
     # Status
     is_active = Column(Boolean, default=True)
     
     # Owner relationship (nullable for anonymous users)
-    owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    owner_id = Column(Uuid, ForeignKey("users.id"), nullable=True)
     owner = relationship("User", back_populates="links")
     
     # Project grouping (optional feature)
@@ -50,7 +49,12 @@ class Link(Base):
         """Check if the link has expired."""
         if self.expires_at is None:
             return False
-        return datetime.now(timezone.utc) > self.expires_at
+        now = datetime.now(timezone.utc)
+        # Handle both naive and aware datetimes
+        expires = self.expires_at
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=timezone.utc)
+        return now > expires
     
     @property
     def effective_short_code(self) -> str:

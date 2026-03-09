@@ -20,5 +20,7 @@ COPY . .
 # Настраиваем порт для приложения
 EXPOSE 8000
 
+RUN chmod a+x docker/*.sh
+
 # Команда для запуска приложения
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["bash", "docker/app.sh"]

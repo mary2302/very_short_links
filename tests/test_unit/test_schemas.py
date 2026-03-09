@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from pydantic import ValidationError
 
 from src.schemas.link import LinkCreate, LinkUpdate, LinkResponse
-from src.schemas.user import UserCreate, UserLogin
+from src.schemas.user import UserCreate
 
 
 class TestLinkCreate:
@@ -129,7 +129,7 @@ class TestUserCreate:
         """Test invalid email format."""
         with pytest.raises(ValidationError):
             UserCreate(
-                email="invalid-email",
+                email="not_an_email",  # No @ symbol
                 username="testuser",
                 password="password123"
             )
@@ -153,11 +153,4 @@ class TestUserCreate:
             )
 
 
-class TestUserLogin:
-    """Tests for UserLogin schema."""
-    
-    def test_valid_login(self):
-        """Test valid login data."""
-        login = UserLogin(username="testuser", password="password123")
-        assert login.username == "testuser"
-        assert login.password == "password123"
+

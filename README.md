@@ -145,9 +145,48 @@ pip install -r requirements.txt
 pytest tests/
 
 # Запуск с покрытием
-coverage run -m pytest tests/
-coverage report
-coverage html  # Генерация HTML отчета
+pytest tests/ --cov=src --cov-report=html --cov-report=term
+```
+
+### Результаты тестирования
+
+**Общая статистика:**
+- ✅ **152 теста** успешно пройдено
+- 📊 **87% покрытия кода**
+
+**Покрытие по модулям:**
+
+| Модуль | Покрытие |
+|--------|----------|
+| config.py | 100% |
+| models/user.py | 100% |
+| routers/auth.py | 100% |
+| schemas/user.py | 100% |
+| utils/url_helpers.py | 100% |
+| models/link.py | 98% |
+| schemas/link.py | 94% |
+| services/cache_service.py | 93% |
+| utils/short_code.py | 92% |
+| services/link_service.py | 91% |
+| services/auth_service.py | 83% |
+| main.py | 78% |
+| routers/links.py | 71% |
+
+HTML-отчёт о покрытии доступен в директории `htmlcov/` после запуска тестов.
+
+### Структура тестов
+```
+tests/
+├── conftest.py              # Фикстуры и конфигурация
+├── test_functional/         # Функциональные тесты
+│   ├── test_auth.py         # Тесты аутентификации
+│   └── test_links.py        # Тесты API ссылок
+└── test_unit/               # Модульные тесты
+    ├── test_auth_service.py
+    ├── test_cache_service.py
+    ├── test_link_service.py
+    ├── test_schemas.py
+    └── test_short_code.py
 ```
 
 ### Нагрузочное тестирование

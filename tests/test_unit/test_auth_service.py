@@ -1,98 +1,75 @@
-"""Unit tests for authentication service."""
+"""Unit tests for authentication service (FastAPI Users)."""
 
 import pytest
-from datetime import timedelta
-from jose import jwt
+from unittest.mock import MagicMock
+import logging
 
-from src.services.auth_service import AuthService
+from src.services.auth_service import (
+    get_jwt_strategy,
+    UserManager,
+)
 from src.config import get_settings
 
 settings = get_settings()
 
 
-class TestPasswordHashing:
-    """Tests for password hashing functions."""
+class TestJWTStrategy:
+    """Tests for JWT strategy configuration."""
     
-    def test_hash_password(self):
-        """Test password hashing."""
-        password = "testpassword123"
-        hashed = AuthService.get_password_hash(password)
+    def test_jwt_strategy_creation(self):
+        """Test that JWT strategy is created correctly."""
+        strategy = get_jwt_strategy()
         
-        assert hashed is not None
-        assert hashed != password
-        assert len(hashed) > 0
+        assert strategy is not None
+        assert strategy.lifetime_seconds == settings.access_token_expire_minutes * 60
     
-    def test_verify_correct_password(self):
-        """Test verifying correct password."""
-        password = "mysecurepassword"
-        hashed = AuthService.get_password_hash(password)
+    def test_jwt_strategy_uses_secret(self):
+        """Test that JWT strategy uses the configured secret."""
+        strategy = get_jwt_strategy()
         
-        assert AuthService.verify_password(password, hashed) is True
-    
-    def test_verify_incorrect_password(self):
-        """Test verifying incorrect password."""
-        password = "mysecurepassword"
-        wrong_password = "wrongpassword"
-        hashed = AuthService.get_password_hash(password)
-        
-        assert AuthService.verify_password(wrong_password, hashed) is False
-    
-    def test_different_passwords_different_hashes(self):
-        """Test that different passwords produce different hashes."""
-        hash1 = AuthService.get_password_hash("password1")
-        hash2 = AuthService.get_password_hash("password2")
-        
-        assert hash1 != hash2
-    
-    def test_same_password_different_hashes(self):
-        """Test that same password produces different hashes (salt)."""
-        password = "samepassword"
-        hash1 = AuthService.get_password_hash(password)
-        hash2 = AuthService.get_password_hash(password)
-        
-        # Hashes should be different due to random salt
-        assert hash1 != hash2
-        # But both should verify correctly
-        assert AuthService.verify_password(password, hash1)
-        assert AuthService.verify_password(password, hash2)
+        # The strategy should use our configured secret
+        assert hasattr(strategy, 'secret')
 
 
-class TestJWTToken:
-    """Tests for JWT token creation."""
+class TestUserManager:
+    """Tests for UserManager class."""
     
-    def test_create_access_token(self):
-        """Test creating access token."""
-        data = {"sub": "testuser", "user_id": 1}
-        token = AuthService.create_access_token(data)
-        
-        assert token is not None
-        assert len(token) > 0
+    def test_user_manager_secrets(self):
+        """Test that UserManager has correct token secrets."""
+        assert UserManager.reset_password_token_secret == settings.secret_key
+        assert UserManager.verification_token_secret == settings.secret_key
     
-    def test_token_contains_payload(self):
-        """Test that token contains correct payload."""
-        data = {"sub": "testuser", "user_id": 123}
-        token = AuthService.create_access_token(data)
+    @pytest.mark.asyncio
+    async def test_on_after_register_logs(self, caplog):
+        """Test that registration callback logs user ID."""
+        caplog.set_level(logging.INFO)
         
-        # Decode and verify
-        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        mock_user_db = MagicMock()
+        manager = UserManager(mock_user_db)
         
-        assert payload["sub"] == "testuser"
-        assert payload["user_id"] == 123
-        assert "exp" in payload
+        # Create mock user
+        mock_user = MagicMock()
+        mock_user.id = "test-uuid-123"
+        
+        await manager.on_after_register(mock_user)
+        
+        assert "test-uuid-123" in caplog.text
+        assert "registered" in caplog.text
+
+
+class TestAuthConfiguration:
+    """Tests for authentication configuration."""
     
-    def test_token_with_custom_expiry(self):
-        """Test token with custom expiration."""
-        data = {"sub": "testuser"}
-        expires = timedelta(hours=2)
-        token = AuthService.create_access_token(data, expires_delta=expires)
-        
-        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
-        assert "exp" in payload
+    def test_settings_has_secret_key(self):
+        """Test that settings has secret key configured."""
+        assert settings.secret_key is not None
+        assert len(settings.secret_key) > 0
     
-    def test_token_without_custom_expiry(self):
-        """Test token with default expiration."""
-        data = {"sub": "testuser"}
-        token = AuthService.create_access_token(data)
-        
-        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
-        assert "exp" in payload
+    def test_settings_has_algorithm(self):
+        """Test that settings has algorithm configured."""
+        assert settings.algorithm is not None
+        assert settings.algorithm == "HS256"
+    
+    def test_access_token_expire_minutes(self):
+        """Test that access token expiration is configured."""
+        assert settings.access_token_expire_minutes > 0

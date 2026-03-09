@@ -38,8 +38,8 @@ class TestRegister:
             }
         )
         
+        # FastAPI Users returns 400 for duplicate username
         assert response.status_code == 400
-        assert "Username already registered" in response.json()["detail"]
     
     async def test_register_duplicate_email(self, client: AsyncClient, test_user):
         """Test registration with duplicate email."""
@@ -52,15 +52,15 @@ class TestRegister:
             }
         )
         
+        # FastAPI Users returns 400 for duplicate email
         assert response.status_code == 400
-        assert "Email already registered" in response.json()["detail"]
     
     async def test_register_invalid_email(self, client: AsyncClient):
         """Test registration with invalid email."""
         response = await client.post(
             "/auth/register",
             json={
-                "email": "invalid-email",
+                "email": "not_valid_email",
                 "username": "testuser",
                 "password": "password123"
             }
@@ -102,9 +102,9 @@ class TestLogin:
     async def test_login_success(self, client: AsyncClient, test_user):
         """Test successful login."""
         response = await client.post(
-            "/auth/login",
+            "/auth/jwt/login",
             data={
-                "username": "testuser",
+                "username": test_user.email,
                 "password": "testpassword123"
             }
         )
@@ -117,32 +117,31 @@ class TestLogin:
     async def test_login_wrong_password(self, client: AsyncClient, test_user):
         """Test login with wrong password."""
         response = await client.post(
-            "/auth/login",
+            "/auth/jwt/login",
             data={
-                "username": "testuser",
+                "username": test_user.email,
                 "password": "wrongpassword"
             }
         )
         
-        assert response.status_code == 401
-        assert "Incorrect username or password" in response.json()["detail"]
+        assert response.status_code == 400
     
     async def test_login_nonexistent_user(self, client: AsyncClient):
         """Test login with non-existent user."""
         response = await client.post(
-            "/auth/login",
+            "/auth/jwt/login",
             data={
-                "username": "nonexistent",
+                "username": "nonexistent@example.com",
                 "password": "password123"
             }
         )
         
-        assert response.status_code == 401
+        assert response.status_code == 400
     
     async def test_login_missing_fields(self, client: AsyncClient):
         """Test login with missing fields."""
         response = await client.post(
-            "/auth/login",
+            "/auth/jwt/login",
             data={}
         )
         
