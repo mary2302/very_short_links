@@ -6,13 +6,13 @@ class Settings(BaseSettings):
     """Настройки приложения, загружаемые из переменных окружения или .env файла."""
     
     # Database
-    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/shortlinks"
-    
+    database_url: str
+
     # Redis
-    redis_url: str = "redis://localhost:6379/0"
-    
+    redis_url: str
+
     # JWT Authentication
-    secret_key: str  # Required, no default!
+    secret_key: str
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     
