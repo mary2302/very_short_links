@@ -23,8 +23,7 @@ config = context.config
 # Get database URL from settings
 settings = get_settings()
 # Convert async URL to sync for Alembic (replace asyncpg with psycopg2)
-sync_database_url = settings.database_url.replace("+asyncpg", "")
-config.set_main_option("sqlalchemy.url", sync_database_url)
+config.set_main_option("sqlalchemy.url", settings.database_url)
 
 # Interpret the config file for Python logging.
 if config.config_file_name is not None:
