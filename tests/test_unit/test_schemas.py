@@ -1,38 +1,36 @@
-"""Unit tests for Pydantic schemas."""
-
 import pytest
 from datetime import datetime, timedelta
 from pydantic import ValidationError
 
-from src.schemas.link import LinkCreate, LinkUpdate, LinkResponse
+from src.schemas.link import LinkCreate, LinkUpdate
 from src.schemas.user import UserCreate
 
 
 class TestLinkCreate:
-    """Tests for LinkCreate schema."""
+    """Тесты для схемы LinkCreate."""
     
     def test_valid_url(self):
-        """Test valid URL creation."""
+        """Тест валидного URL."""
         link = LinkCreate(original_url="https://example.com/page")
         assert link.original_url == "https://example.com/page"
     
     def test_http_url(self):
-        """Test HTTP URL is valid."""
+        """Тест HTTP URL."""
         link = LinkCreate(original_url="http://example.com")
         assert link.original_url == "http://example.com"
     
     def test_invalid_url_no_protocol(self):
-        """Test URL without protocol is invalid."""
+        """Тест URL без протокола."""
         with pytest.raises(ValidationError):
             LinkCreate(original_url="example.com")
     
     def test_invalid_url_wrong_protocol(self):
-        """Test URL with wrong protocol is invalid."""
+        """Тест URL с неправильным протоколом."""
         with pytest.raises(ValidationError):
             LinkCreate(original_url="ftp://example.com")
     
     def test_valid_custom_alias(self):
-        """Test valid custom alias."""
+        """Тест валидного пользовательского псевдонима."""
         link = LinkCreate(
             original_url="https://example.com",
             custom_alias="my-custom-link"
@@ -40,7 +38,7 @@ class TestLinkCreate:
         assert link.custom_alias == "my-custom-link"
     
     def test_custom_alias_with_numbers(self):
-        """Test custom alias with numbers."""
+        """Тест пользовательского псевдонима с числами."""
         link = LinkCreate(
             original_url="https://example.com",
             custom_alias="link123"
@@ -48,7 +46,7 @@ class TestLinkCreate:
         assert link.custom_alias == "link123"
     
     def test_custom_alias_with_underscore(self):
-        """Test custom alias with underscore."""
+        """Тест пользовательского псевдонима с подчеркиванием."""
         link = LinkCreate(
             original_url="https://example.com",
             custom_alias="my_link"
@@ -56,7 +54,7 @@ class TestLinkCreate:
         assert link.custom_alias == "my_link"
     
     def test_invalid_custom_alias_special_chars(self):
-        """Test custom alias with special characters is invalid."""
+        """Тест пользовательского псевдонима с особыми символами."""
         with pytest.raises(ValidationError):
             LinkCreate(
                 original_url="https://example.com",
@@ -64,7 +62,7 @@ class TestLinkCreate:
             )
     
     def test_custom_alias_too_short(self):
-        """Test custom alias too short."""
+        """Тест пользовательского псевдонима, который слишком короткий."""
         with pytest.raises(ValidationError):
             LinkCreate(
                 original_url="https://example.com",
@@ -72,7 +70,7 @@ class TestLinkCreate:
             )
     
     def test_valid_expires_at(self):
-        """Test valid expiration datetime."""
+        """Тест валидной даты истечения."""
         future_date = datetime.utcnow() + timedelta(days=7)
         link = LinkCreate(
             original_url="https://example.com",
@@ -81,7 +79,7 @@ class TestLinkCreate:
         assert link.expires_at == future_date
     
     def test_project_field(self):
-        """Test project field."""
+        """Тест поля проекта."""
         link = LinkCreate(
             original_url="https://example.com",
             project="my-project"
@@ -90,22 +88,22 @@ class TestLinkCreate:
 
 
 class TestLinkUpdate:
-    """Tests for LinkUpdate schema."""
+    """Тесты для схемы LinkUpdate."""
     
     def test_partial_update_url(self):
-        """Test partial update with only URL."""
+        """Тест частичного обновления с только URL."""
         update = LinkUpdate(original_url="https://newurl.com")
         assert update.original_url == "https://newurl.com"
         assert update.custom_alias is None
     
     def test_partial_update_alias(self):
-        """Test partial update with only alias."""
+        """Тест частичного обновления с только псевдонимом."""
         update = LinkUpdate(custom_alias="new-alias")
         assert update.custom_alias == "new-alias"
         assert update.original_url is None
     
     def test_all_fields_none(self):
-        """Test update with all fields None."""
+        """Тест частичного обновления со всеми полями None."""
         update = LinkUpdate()
         assert update.original_url is None
         assert update.custom_alias is None
@@ -113,10 +111,10 @@ class TestLinkUpdate:
 
 
 class TestUserCreate:
-    """Tests for UserCreate schema."""
+    """Тесты для схемы UserCreate."""
     
     def test_valid_user(self):
-        """Test valid user creation."""
+        """Тест валидного создания пользователя."""
         user = UserCreate(
             email="test@example.com",
             username="testuser",
@@ -126,7 +124,7 @@ class TestUserCreate:
         assert user.username == "testuser"
     
     def test_invalid_email(self):
-        """Test invalid email format."""
+        """Тест недействительного формата email."""
         with pytest.raises(ValidationError):
             UserCreate(
                 email="not_an_email",  # No @ symbol
@@ -135,7 +133,7 @@ class TestUserCreate:
             )
     
     def test_username_too_short(self):
-        """Test username too short."""
+        """Тест username слишком короткий."""
         with pytest.raises(ValidationError):
             UserCreate(
                 email="test@example.com",
@@ -144,7 +142,7 @@ class TestUserCreate:
             )
     
     def test_password_too_short(self):
-        """Test password too short."""
+        """Тест password слишком короткий."""
         with pytest.raises(ValidationError):
             UserCreate(
                 email="test@example.com",

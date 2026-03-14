@@ -1,6 +1,4 @@
 """
-Locust load testing for URL Shortener API.
-
 Run with:
     locust -f tests/test_load/locustfile.py --host=http://localhost:8000
 
@@ -14,32 +12,28 @@ from locust import HttpUser, task, between, events
 
 
 def random_url():
-    """Generate a random URL for testing."""
+    """Генерирует случайный URL для тестирования."""
     path = ''.join(random.choices(string.ascii_lowercase, k=20))
     return f"https://example.com/{path}"
 
 
 def random_alias():
-    """Generate a random alias for testing."""
+    """Генерирует случайный псевдоним для тестирования."""
     return ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
 
 
 class URLShortenerUser(HttpUser):
-    """Simulated user for load testing URL shortener."""
+    """Симулированный пользователь для нагрузочного тестирования сервиса."""
     
     wait_time = between(1, 3)  # Wait 1-3 seconds between tasks
     
     def on_start(self):
-        """Initialize user session."""
+        """Инициализация пользователя"""
         self.created_links = []
         self.token = None
-        
-        # Register and login
         username = f"user_{random_alias()}"
         email = f"{username}@test.com"
         password = "testpassword123"
-        
-        # Register
         response = self.client.post(
             "/auth/register",
             json={
@@ -50,11 +44,10 @@ class URLShortenerUser(HttpUser):
         )
         
         if response.status_code == 201:
-            # Login (FastAPI Users uses /auth/jwt/login)
             response = self.client.post(
                 "/auth/jwt/login",
                 data={
-                    "username": email,  # FastAPI Users uses email for auth
+                    "username": email,
                     "password": password
                 }
             )
@@ -63,14 +56,13 @@ class URLShortenerUser(HttpUser):
     
     @property
     def auth_headers(self):
-        """Get authorization headers."""
         if self.token:
             return {"Authorization": f"Bearer {self.token}"}
         return {}
     
     @task(10)
     def create_link(self):
-        """Create a shortened link."""
+        """создание короткой ссылки без псевдонима."""
         url = random_url()
         response = self.client.post(
             "/links/shorten",
@@ -84,7 +76,7 @@ class URLShortenerUser(HttpUser):
     
     @task(5)
     def create_link_with_alias(self):
-        """Create a link with custom alias."""
+        """создание ссылки с пользовательским псевдонимом."""
         url = random_url()
         alias = random_alias()
         
@@ -102,7 +94,7 @@ class URLShortenerUser(HttpUser):
     
     @task(20)
     def redirect_link(self):
-        """Access a shortened link (redirect)."""
+        """Доступ к сокращенной ссылке."""
         if self.created_links:
             code = random.choice(self.created_links)
             self.client.get(
@@ -113,7 +105,7 @@ class URLShortenerUser(HttpUser):
     
     @task(10)
     def get_link_stats(self):
-        """Get statistics for a link."""
+        """Получение статистики по ссылке."""
         if self.created_links:
             code = random.choice(self.created_links)
             self.client.get(
@@ -123,7 +115,7 @@ class URLShortenerUser(HttpUser):
     
     @task(3)
     def search_link(self):
-        """Search for a link by original URL."""
+        """Поиск ссылки по оригинальному URL."""
         url = random_url()
         self.client.get(
             "/links/search",
@@ -132,7 +124,7 @@ class URLShortenerUser(HttpUser):
     
     @task(5)
     def get_my_links(self):
-        """Get user's links."""
+        """Получение ссылок пользователя."""
         self.client.get(
             "/links/user/my-links",
             headers=self.auth_headers
@@ -140,7 +132,7 @@ class URLShortenerUser(HttpUser):
     
     @task(2)
     def update_link(self):
-        """Update a link."""
+        """Обновление оригинального URL для существующей ссылки."""
         if self.created_links and self.token:
             code = random.choice(self.created_links)
             new_url = random_url()
@@ -153,7 +145,7 @@ class URLShortenerUser(HttpUser):
     
     @task(1)
     def delete_link(self):
-        """Delete a link."""
+        """Удаление ссылки."""
         if self.created_links and self.token:
             code = self.created_links.pop(0)
             self.client.delete(
@@ -164,22 +156,19 @@ class URLShortenerUser(HttpUser):
     
     @task(5)
     def health_check(self):
-        """Check health endpoint."""
         self.client.get("/health")
 
 
 class AnonymousUser(HttpUser):
-    """Anonymous user without authentication."""
+    """Анонимный пользователь для тестирования доступа без аутентификации."""
     
     wait_time = between(0.5, 2)
     
     def on_start(self):
-        """Initialize anonymous user."""
         self.created_links = []
     
     @task(10)
     def create_anonymous_link(self):
-        """Create a link without authentication."""
         url = random_url()
         response = self.client.post(
             "/links/shorten",
@@ -192,7 +181,6 @@ class AnonymousUser(HttpUser):
     
     @task(30)
     def redirect_link(self):
-        """Access a shortened link."""
         if self.created_links:
             code = random.choice(self.created_links)
             self.client.get(
@@ -203,7 +191,6 @@ class AnonymousUser(HttpUser):
     
     @task(5)
     def get_stats(self):
-        """Get link statistics."""
         if self.created_links:
             code = random.choice(self.created_links)
             self.client.get(
@@ -213,12 +200,12 @@ class AnonymousUser(HttpUser):
 
 
 class CacheTestUser(HttpUser):
-    """User for testing cache performance."""
+    """Пользователь для тестирования кэширования при повторном доступе к одной и той же ссылке."""
     
     wait_time = between(0.1, 0.5)
     
     def on_start(self):
-        """Create a single link to test cache."""
+        """Создаем одну ссылку для тестирования кэширования."""
         url = random_url()
         response = self.client.post(
             "/links/shorten",
@@ -232,7 +219,7 @@ class CacheTestUser(HttpUser):
     
     @task
     def access_cached_link(self):
-        """Repeatedly access the same link to test caching."""
+        """Доступ к одной и той же ссылке для проверки кэширования."""
         if self.short_code:
             self.client.get(
                 f"/{self.short_code}",
@@ -241,7 +228,7 @@ class CacheTestUser(HttpUser):
             )
 
 
-# Event hooks for reporting
+# Отчеты о начале и окончании теста
 @events.test_start.add_listener
 def on_test_start(environment, **kwargs):
     """Called when test starts."""

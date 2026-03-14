@@ -1,5 +1,3 @@
-"""Pytest configuration and fixtures for tests."""
-
 import asyncio
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -20,17 +18,17 @@ from src.services.auth_service import fastapi_users, auth_backend
 from src.models.user import User
 from src.models.link import Link
 
-# Password helper for creating test users
+# Инициализация PasswordHelper для хеширования паролей в тестах
 password_helper = PasswordHelper()
 
 
-# Test database URL (SQLite in-memory for tests)
+# Тестовая база данных для использования в тестах
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 
 @pytest.fixture(scope="session")
 def event_loop() -> Generator:
-    """Create event loop for async tests."""
+    """Создает и возвращает новый цикл событий для асинхронных тестов."""
     loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()
@@ -38,7 +36,7 @@ def event_loop() -> Generator:
 
 @pytest_asyncio.fixture(scope="function")
 async def test_engine():
-    """Create test database engine."""
+    """Создает асинхронный движок для тестовой базы данных и управляет созданием/удалением таблиц."""
     engine = create_async_engine(
         TEST_DATABASE_URL,
         connect_args={"check_same_thread": False},
@@ -59,7 +57,7 @@ async def test_engine():
 
 @pytest_asyncio.fixture(scope="function")
 async def test_db(test_engine) -> AsyncGenerator[AsyncSession, None]:
-    """Create test database session."""
+    """Создает асинхронную сессию для тестовой базы данных."""
     async_session_maker = async_sessionmaker(
         test_engine,
         class_=AsyncSession,
@@ -72,7 +70,7 @@ async def test_db(test_engine) -> AsyncGenerator[AsyncSession, None]:
 
 @pytest_asyncio.fixture(scope="function")
 async def mock_cache() -> CacheService:
-    """Create mock cache service."""
+    """Создает мок сервис кэша."""
     cache = MagicMock(spec=CacheService)
     cache.get = AsyncMock(return_value=None)
     cache.set = AsyncMock(return_value=True)
@@ -92,7 +90,8 @@ async def mock_cache() -> CacheService:
 
 @pytest_asyncio.fixture(scope="function")
 async def client(test_db, mock_cache) -> AsyncGenerator[AsyncClient, None]:
-    """Create test client with overridden dependencies."""
+    """Создает асинхронного клиента для тестирования FastAPI приложения 
+    с переопределенными зависимостями базы данных и кэша."""
     
     async def override_get_db():
         yield test_db
@@ -114,7 +113,7 @@ async def client(test_db, mock_cache) -> AsyncGenerator[AsyncClient, None]:
 
 @pytest_asyncio.fixture(scope="function")
 async def test_user(test_db) -> User:
-    """Create a test user."""
+    """Создает тестового пользователя в базе данных."""
     user = User(
         id=uuid.uuid4(),
         email="test@example.com",
@@ -132,7 +131,7 @@ async def test_user(test_db) -> User:
 
 @pytest_asyncio.fixture(scope="function")
 async def test_user_token(client, test_user) -> str:
-    """Get JWT token by logging in test user."""
+    """Получает JWT токен для тестового пользователя."""
     response = await client.post(
         "/auth/jwt/login",
         data={"username": test_user.email, "password": "testpassword123"},
@@ -142,13 +141,13 @@ async def test_user_token(client, test_user) -> str:
 
 @pytest_asyncio.fixture(scope="function")
 async def auth_headers(test_user_token) -> dict:
-    """Create authorization headers for authenticated requests."""
+    """Создает заголовки авторизации для аутентифицированных запросов."""
     return {"Authorization": f"Bearer {test_user_token}"}
 
 
 @pytest_asyncio.fixture(scope="function")
 async def test_link(test_db, test_user) -> Link:
-    """Create a test link."""
+    """Создает тестовую ссылку."""
     link = Link(
         original_url="https://example.com/long-url",
         short_code="abc123",
@@ -163,7 +162,7 @@ async def test_link(test_db, test_user) -> Link:
 
 @pytest_asyncio.fixture(scope="function")
 async def test_link_with_alias(test_db, test_user) -> Link:
-    """Create a test link with custom alias."""
+    """Создает тестовую ссылку с пользовательским псевдонимом."""
     link = Link(
         original_url="https://example.com/another-url",
         short_code="xyz789",
@@ -179,7 +178,7 @@ async def test_link_with_alias(test_db, test_user) -> Link:
 
 @pytest_asyncio.fixture(scope="function")
 async def expired_link(test_db, test_user) -> Link:
-    """Create an expired test link."""
+    """Создает истекающую тестовую ссылку."""
     link = Link(
         original_url="https://example.com/expired",
         short_code="exp123",
@@ -195,7 +194,7 @@ async def expired_link(test_db, test_user) -> Link:
 
 @pytest_asyncio.fixture(scope="function")
 async def anonymous_link(test_db) -> Link:
-    """Create a link without owner (anonymous)."""
+    """Создает анонимную тестовую ссылку (без владельца)."""
     link = Link(
         original_url="https://example.com/anonymous",
         short_code="anon12",

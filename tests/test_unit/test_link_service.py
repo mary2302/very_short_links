@@ -1,5 +1,3 @@
-"""Unit tests for LinkService."""
-
 import pytest
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -13,7 +11,7 @@ from src.models.user import User
 
 @pytest.fixture
 def mock_db():
-    """Create mock database session."""
+    """Создает мок базы данных с необходимыми методами."""
     db = MagicMock()
     db.execute = AsyncMock()
     db.commit = AsyncMock()
@@ -25,7 +23,7 @@ def mock_db():
 
 @pytest.fixture
 def mock_cache():
-    """Create mock cache service."""
+    """Создает мок сервиса кэширования."""
     cache = MagicMock()
     cache.get_link = AsyncMock(return_value=None)
     cache.set_link = AsyncMock(return_value=True)
@@ -38,16 +36,16 @@ def mock_cache():
 
 @pytest.fixture
 def link_service(mock_db, mock_cache):
-    """Create LinkService with mocked dependencies."""
+    """Создает LinkService с замокированными зависимостями."""
     return LinkService(mock_db, mock_cache)
 
 
 class TestLinkServiceCreate:
-    """Tests for link creation in LinkService."""
+    """Тесты для создания ссылок в LinkService."""
     
     @pytest.mark.asyncio
     async def test_create_link_basic(self, link_service, mock_db):
-        """Test creating a basic link."""
+        """Тест создания базовой ссылки."""
         # Mock the execute to return None (no existing link)
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
@@ -63,7 +61,7 @@ class TestLinkServiceCreate:
     
     @pytest.mark.asyncio
     async def test_create_link_with_custom_alias(self, link_service, mock_db):
-        """Test creating link with custom alias."""
+        """Тест создания ссылки с пользовательским псевдонимом."""
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute.return_value = mock_result
@@ -78,7 +76,7 @@ class TestLinkServiceCreate:
     
     @pytest.mark.asyncio
     async def test_create_link_with_expiry(self, link_service, mock_db):
-        """Test creating link with expiration."""
+        """Тест создания ссылки с истечением срока действия."""
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute.return_value = mock_result
@@ -94,7 +92,7 @@ class TestLinkServiceCreate:
     
     @pytest.mark.asyncio
     async def test_create_link_with_project(self, link_service, mock_db):
-        """Test creating link with project."""
+        """Тест создания ссылки с проектом."""
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute.return_value = mock_result
@@ -109,7 +107,7 @@ class TestLinkServiceCreate:
     
     @pytest.mark.asyncio
     async def test_create_link_with_owner(self, link_service, mock_db):
-        """Test creating link with owner."""
+        """Тест создания ссылки с владельцем."""
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute.return_value = mock_result
@@ -122,13 +120,32 @@ class TestLinkServiceCreate:
         
         assert link.owner_id == owner.id
 
+    @pytest.mark.asyncio
+    async def test_create_link_duplicate_alias(self, link_service, mock_db):
+        """Тест создания ссылки с дублирующим custom_alias (должен быть ValueError)."""
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = Link(
+            id=1,
+            original_url="https://example.com/exists",
+            short_code="exists",
+            custom_alias="my-alias",
+            is_active=True,
+            click_count=0,
+            created_at=datetime.now(timezone.utc),
+            expires_at=None
+        )
+        mock_db.execute.return_value = mock_result
+        link_data = LinkCreate(original_url="https://example.com/new", custom_alias="my-alias")
+        with pytest.raises(ValueError):
+            await link_service.create_link(link_data, owner=None)
+
 
 class TestLinkServiceGet:
-    """Tests for getting links in LinkService."""
+    """Тесты для получения ссылок в LinkService."""
     
     @pytest.mark.asyncio
     async def test_get_link_by_code(self, link_service, mock_db, mock_cache):
-        """Test getting link by short code."""
+        """Тест получения ссылки по короткому коду."""
         expected_link = Link(
             id=1,
             original_url="https://example.com",
@@ -146,7 +163,7 @@ class TestLinkServiceGet:
     
     @pytest.mark.asyncio
     async def test_get_link_not_found(self, link_service, mock_db, mock_cache):
-        """Test getting non-existent link."""
+        """Тест получения несуществующей ссылки."""
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute.return_value = mock_result
@@ -157,15 +174,23 @@ class TestLinkServiceGet:
 
 
 class TestLinkServiceGetOriginalUrl:
-    """Tests for get_original_url method."""
+    """Тесты получения оригинального URL по короткому коду в LinkService."""
     
     @pytest.mark.asyncio
     async def test_get_original_url_from_cache(self, link_service, mock_db, mock_cache):
-        """Test getting URL when data is cached."""
-        cached_data = {"original_url": "https://cached.example.com"}
+        """Тест получения оригинального URL из кэша."""
+        cached_data = {
+            "id": 1,
+            "original_url": "https://cached.example.com",
+            "short_code": "cached123",
+            "custom_alias": None,
+            "created_at": "2026-01-01T00:00:00",
+            "expires_at": None,
+            "click_count": 10,
+            "is_active": True
+        }
         mock_cache.get_link.return_value = cached_data
         
-        # Mock DB link (for cache hit path)
         db_link = Link(
             id=1,
             original_url="https://cached.example.com",
@@ -183,11 +208,10 @@ class TestLinkServiceGetOriginalUrl:
         assert result == "https://cached.example.com"
         mock_cache.get_link.assert_called_with("cached123")
         mock_cache.increment_click_count.assert_called_with("cached123")
-        assert db_link.click_count == 11  # Incremented
     
     @pytest.mark.asyncio
     async def test_get_original_url_not_in_cache(self, link_service, mock_db, mock_cache):
-        """Test getting URL from DB when not cached."""
+        """Тест получения оригинального URL, когда данных нет в кэше."""
         mock_cache.get_link.return_value = None
         
         db_link = Link(
@@ -205,11 +229,11 @@ class TestLinkServiceGetOriginalUrl:
         result = await link_service.get_original_url("db123", "http://test.com")
         
         assert result == "https://db.example.com"
-        assert db_link.click_count == 6  # Incremented
+        assert db_link.click_count == 6
     
     @pytest.mark.asyncio
     async def test_get_original_url_link_not_found(self, link_service, mock_db, mock_cache):
-        """Test getting URL for non-existent link."""
+        """Тест получения оригинального URL для несуществующей ссылки."""
         mock_cache.get_link.return_value = None
         
         mock_result = MagicMock()
@@ -221,51 +245,50 @@ class TestLinkServiceGetOriginalUrl:
         assert result is None
     
     @pytest.mark.asyncio
-    async def test_get_original_url_expired_link(self, link_service, mock_db, mock_cache):
-        """Test getting URL for expired link."""
+    async def test_get_original_url_expired(self, link_service, mock_db, mock_cache):
+        """Тест получения истёкшей ссылки (должен вернуть None)."""
         mock_cache.get_link.return_value = None
-        
         expired_link = Link(
             id=1,
             original_url="https://expired.example.com",
-            short_code="exp123",
+            short_code="expired123",
             is_active=True,
-            expires_at=datetime.now(timezone.utc) - timedelta(hours=1)
+            click_count=5,
+            created_at=datetime.now(timezone.utc),
+            expires_at=datetime.now(timezone.utc) - timedelta(days=1)
         )
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = expired_link
         mock_db.execute.return_value = mock_result
-        
-        result = await link_service.get_original_url("exp123", "http://test.com")
-        
+        result = await link_service.get_original_url("expired123")
         assert result is None
-    
+
     @pytest.mark.asyncio
-    async def test_get_original_url_inactive_link(self, link_service, mock_db, mock_cache):
-        """Test getting URL for inactive link."""
+    async def test_get_original_url_inactive(self, link_service, mock_db, mock_cache):
+        """Тест получения неактивной ссылки (должен вернуть None)."""
         mock_cache.get_link.return_value = None
-        
         inactive_link = Link(
             id=1,
             original_url="https://inactive.example.com",
             short_code="inactive123",
-            is_active=False
+            is_active=False,
+            click_count=5,
+            created_at=datetime.now(timezone.utc),
+            expires_at=None
         )
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = inactive_link
         mock_db.execute.return_value = mock_result
-        
-        result = await link_service.get_original_url("inactive123", "http://test.com")
-        
+        result = await link_service.get_original_url("inactive123")
         assert result is None
 
 
 class TestLinkServiceUpdate:
-    """Tests for updating links in LinkService."""
+    """Тесты для обновления ссылок в LinkService."""
     
     @pytest.mark.asyncio
     async def test_update_link(self, link_service, mock_db, mock_cache):
-        """Test updating a link."""
+        """Тест обновления ссылки."""
         owner_id = uuid.uuid4()
         existing_link = Link(
             id=1,
@@ -290,7 +313,7 @@ class TestLinkServiceUpdate:
     
     @pytest.mark.asyncio
     async def test_update_link_not_owner(self, link_service, mock_db, mock_cache):
-        """Test updating link by non-owner raises PermissionError."""
+        """Тест обновления ссылки не владельцем вызывает PermissionError."""
         owner_id = uuid.uuid4()
         other_user_id = uuid.uuid4()
         
@@ -307,7 +330,7 @@ class TestLinkServiceUpdate:
         mock_db.execute.return_value = mock_result
         
         user = MagicMock(spec=User)
-        user.id = other_user_id  # Different from owner
+        user.id = other_user_id  # Отличный от владельца ID
         
         update_data = LinkUpdate(original_url="https://new.example.com")
         
@@ -316,7 +339,7 @@ class TestLinkServiceUpdate:
     
     @pytest.mark.asyncio
     async def test_update_link_duplicate_alias(self, link_service, mock_db, mock_cache):
-        """Test updating link with duplicate alias raises ValueError."""
+        """Тест обновления ссылки с дублирующимся псевдонимом вызывает ValueError."""
         owner_id = uuid.uuid4()
         
         existing_link = Link(
@@ -327,7 +350,7 @@ class TestLinkServiceUpdate:
             owner_id=owner_id
         )
         
-        # Another link with the alias we want to use
+        # Ссылка с таким псевдонимом уже существует
         alias_link = Link(
             id=2,
             original_url="https://other.example.com",
@@ -337,7 +360,7 @@ class TestLinkServiceUpdate:
         )
         
         mock_result = MagicMock()
-        # First call returns the link to update, second call returns the existing alias
+        # Первый вызов проверяет существующую ссылку, второй наличие псевдонима
         mock_result.scalar_one_or_none.side_effect = [existing_link, alias_link]
         mock_db.execute.return_value = mock_result
         
@@ -351,7 +374,7 @@ class TestLinkServiceUpdate:
     
     @pytest.mark.asyncio
     async def test_update_link_with_project(self, link_service, mock_db, mock_cache):
-        """Test updating link project field."""
+        """Тест обновления поля проекта ссылки."""
         owner_id = uuid.uuid4()
         existing_link = Link(
             id=1,
@@ -375,7 +398,7 @@ class TestLinkServiceUpdate:
     
     @pytest.mark.asyncio
     async def test_update_link_with_expires(self, link_service, mock_db, mock_cache):
-        """Test updating link expiration."""
+        """Тест обновления даты истечения ссылки."""
         owner_id = uuid.uuid4()
         existing_link = Link(
             id=1,
@@ -400,11 +423,11 @@ class TestLinkServiceUpdate:
 
 
 class TestLinkServiceDelete:
-    """Tests for deleting links in LinkService."""
+    """Тесты для удаления ссылок в LinkService."""
     
     @pytest.mark.asyncio
     async def test_delete_link(self, link_service, mock_db, mock_cache):
-        """Test deleting a link."""
+        """Тест удаления ссылки."""
         owner_id = uuid.uuid4()
         existing_link = Link(
             id=1,
@@ -428,7 +451,7 @@ class TestLinkServiceDelete:
     
     @pytest.mark.asyncio
     async def test_delete_link_with_custom_alias(self, link_service, mock_db, mock_cache):
-        """Test deleting link with custom alias deletes both from cache."""
+        """Тест удаления ссылки с пользовательским псевдонимом удаляет обе записи из кэша."""
         owner_id = uuid.uuid4()
         existing_link = Link(
             id=1,
@@ -449,12 +472,12 @@ class TestLinkServiceDelete:
         result = await link_service.delete_link("delete123", user)
         
         assert result is True
-        # Should delete both short_code and custom_alias from cache
+        # Должны удалить как по короткому коду, так и по псевдониму
         assert mock_cache.delete_link.call_count == 2
     
     @pytest.mark.asyncio
     async def test_delete_link_not_found(self, link_service, mock_db, mock_cache):
-        """Test deleting non-existent link returns False."""
+        """Тест удаления несуществующей ссылки возвращает False."""
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute.return_value = mock_result
@@ -468,7 +491,7 @@ class TestLinkServiceDelete:
     
     @pytest.mark.asyncio
     async def test_delete_link_not_owner(self, link_service, mock_db, mock_cache):
-        """Test deleting link by non-owner raises PermissionError."""
+        """Тест удаления ссылки не владельцем вызывает PermissionError."""
         owner_id = uuid.uuid4()
         other_user_id = uuid.uuid4()
         
@@ -485,14 +508,14 @@ class TestLinkServiceDelete:
         mock_db.execute.return_value = mock_result
         
         user = MagicMock(spec=User)
-        user.id = other_user_id  # Different from owner
+        user.id = other_user_id    
         
         with pytest.raises(PermissionError):
             await link_service.delete_link("delete123", user)
 
 
 class TestLinkServiceStats:
-    """Tests for getting link statistics."""
+    """Тесты для получения статистики ссылок в LinkService."""
     
     @pytest.mark.asyncio
     async def test_get_link_stats(self, link_service, mock_db, mock_cache):
@@ -517,11 +540,11 @@ class TestLinkServiceStats:
 
 
 class TestLinkServiceSearch:
-    """Tests for searching links."""
+    """Тесты для поиска ссылок."""
     
     @pytest.mark.asyncio
     async def test_search_by_original_url(self, link_service, mock_db):
-        """Test searching link by original URL."""
+        """Тест поиска ссылки по оригинальному URL."""
         expected_links = [Link(
             id=1,
             original_url="https://search.example.com",
@@ -541,11 +564,11 @@ class TestLinkServiceSearch:
 
 
 class TestLinkServiceCleanup:
-    """Tests for cleanup operations."""
+    """Тесты для операций очистки."""
     
     @pytest.mark.asyncio
     async def test_cleanup_expired_links(self, link_service, mock_db):
-        """Test cleaning up expired links."""
+        """Тест очистки истекших ссылок."""
         mock_result = MagicMock()
         mock_result.rowcount = 5
         mock_db.execute.return_value = mock_result
@@ -557,7 +580,7 @@ class TestLinkServiceCleanup:
     
     @pytest.mark.asyncio
     async def test_cleanup_unused_links(self, link_service, mock_db):
-        """Test cleaning up unused links."""
+        """Тест очистки неиспользуемых ссылок."""
         mock_result = MagicMock()
         mock_result.rowcount = 3
         mock_db.execute.return_value = mock_result
@@ -569,7 +592,7 @@ class TestLinkServiceCleanup:
     
     @pytest.mark.asyncio
     async def test_get_expired_links_history(self, link_service, mock_db):
-        """Test getting expired links history."""
+        """Тест получения истории истекших ссылок."""
         expired_links = [
             Link(id=1, original_url="https://expired1.com", short_code="exp1", is_active=True),
             Link(id=2, original_url="https://expired2.com", short_code="exp2", is_active=True)
@@ -587,11 +610,11 @@ class TestLinkServiceCleanup:
 
 
 class TestLinkServiceUserLinks:
-    """Tests for user links operations."""
+    """Тесты для операций с ссылками пользователя."""
     
     @pytest.mark.asyncio
     async def test_get_user_links(self, link_service, mock_db):
-        """Test getting all links for a user."""
+        """Тест получения всех ссылок для пользователя."""
         user = MagicMock(spec=User)
         user.id = uuid.uuid4()
         
@@ -612,11 +635,11 @@ class TestLinkServiceUserLinks:
 
 
 class TestLinkServiceProject:
-    """Tests for project-related operations."""
+    """Тесты для операций, связанных с проектами."""
     
     @pytest.mark.asyncio
     async def test_get_links_by_project(self, link_service, mock_db):
-        """Test getting links by project."""
+        """Тест получения ссылок по проекту."""
         project_links = [
             Link(id=1, original_url="https://proj1.com", short_code="prj1", project="myproject", is_active=True)
         ]

@@ -1,5 +1,3 @@
-"""Alembic environment configuration for async SQLAlchemy."""
-
 import asyncio
 from logging.config import fileConfig
 
@@ -9,30 +7,24 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
-# Import your models and settings
 from src.config import get_settings
 from src.database import Base
-
-# Import all models to register them with Base.metadata
 from src.models.user import User
 from src.models.link import Link
 
-# this is the Alembic Config object
 config = context.config
 
-# Get database URL from settings
 settings = get_settings()
-# Convert async URL to sync for Alembic (replace asyncpg with psycopg2)
+# Перезаписываем ссылку бд из конфигурации Alembic на ссылку из настроек
 config.set_main_option("sqlalchemy.url", settings.database_url)
 
-# Interpret the config file for Python logging.
+# Настраиваем логирование из конфигурации Alembic
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# add your model's MetaData object here for 'autogenerate' support
 target_metadata = Base.metadata
 
-
+# Функция для запуска миграций в офлайн режиме (без подключения к базе данных)
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
@@ -55,7 +47,7 @@ def run_migrations_offline() -> None:
     with context.begin_transaction():
         context.run_migrations()
 
-
+# Функция для запуска миграций в онлайн режиме (с подключением к базе данных)
 def do_run_migrations(connection: Connection) -> None:
     """Run migrations with the given connection."""
     context.configure(connection=connection, target_metadata=target_metadata)

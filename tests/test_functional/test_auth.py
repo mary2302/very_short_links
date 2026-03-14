@@ -1,12 +1,10 @@
-"""Functional tests for authentication API."""
-
 import pytest
 from httpx import AsyncClient
 
 
 @pytest.mark.asyncio
 class TestRegister:
-    """Tests for user registration endpoint."""
+    """Тесты регистрации пользователей."""
     
     async def test_register_success(self, client: AsyncClient):
         """Test successful user registration."""
@@ -28,21 +26,21 @@ class TestRegister:
         assert "hashed_password" not in data
     
     async def test_register_duplicate_username(self, client: AsyncClient, test_user):
-        """Test registration with duplicate username."""
+        """Тест регистрации с уже существующим именем пользователя."""
         response = await client.post(
             "/auth/register",
             json={
                 "email": "different@example.com",
-                "username": "testuser",  # Same as test_user
+                "username": "testuser",
                 "password": "password123"
             }
         )
         
-        # FastAPI Users returns 400 for duplicate username
+        # FastAPI Users возвращает 400 при дублирующемся имени пользователя
         assert response.status_code == 400
     
     async def test_register_duplicate_email(self, client: AsyncClient, test_user):
-        """Test registration with duplicate email."""
+        """Тест регистрации с уже существующим email."""
         response = await client.post(
             "/auth/register",
             json={
@@ -52,11 +50,11 @@ class TestRegister:
             }
         )
         
-        # FastAPI Users returns 400 for duplicate email
+        # FastAPI Users возвращает 400 при дублирующемся email
         assert response.status_code == 400
     
     async def test_register_invalid_email(self, client: AsyncClient):
-        """Test registration with invalid email."""
+        """Тест регистрации с недействительным email."""
         response = await client.post(
             "/auth/register",
             json={
@@ -69,7 +67,7 @@ class TestRegister:
         assert response.status_code == 422  # Validation error
     
     async def test_register_short_password(self, client: AsyncClient):
-        """Test registration with too short password."""
+        """Тест регистрации с слишком коротким паролем."""
         response = await client.post(
             "/auth/register",
             json={
@@ -82,7 +80,7 @@ class TestRegister:
         assert response.status_code == 422
     
     async def test_register_short_username(self, client: AsyncClient):
-        """Test registration with too short username."""
+        """Тест регистрации с слишком коротким именем пользователя."""
         response = await client.post(
             "/auth/register",
             json={
@@ -97,10 +95,10 @@ class TestRegister:
 
 @pytest.mark.asyncio
 class TestLogin:
-    """Tests for user login endpoint."""
+    """Тесты входа пользователя."""
     
     async def test_login_success(self, client: AsyncClient, test_user):
-        """Test successful login."""
+        """Тест успешного входа."""
         response = await client.post(
             "/auth/jwt/login",
             data={
@@ -115,7 +113,7 @@ class TestLogin:
         assert data["token_type"] == "bearer"
     
     async def test_login_wrong_password(self, client: AsyncClient, test_user):
-        """Test login with wrong password."""
+        """Тест входа с неправильным паролем."""
         response = await client.post(
             "/auth/jwt/login",
             data={
@@ -127,7 +125,7 @@ class TestLogin:
         assert response.status_code == 400
     
     async def test_login_nonexistent_user(self, client: AsyncClient):
-        """Test login with non-existent user."""
+        """Тест входа с несуществующим пользователем."""
         response = await client.post(
             "/auth/jwt/login",
             data={
@@ -139,7 +137,7 @@ class TestLogin:
         assert response.status_code == 400
     
     async def test_login_missing_fields(self, client: AsyncClient):
-        """Test login with missing fields."""
+        """Тест входа с отсутствующими полями."""
         response = await client.post(
             "/auth/jwt/login",
             data={}

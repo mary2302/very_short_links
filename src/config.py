@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:8000"]
     
-    # Link settings
+    # Настройки для создания и управления сссылками
     default_link_expiry_days: int = 30
     short_code_length: int = 6
     unused_link_cleanup_days: int = 90
@@ -37,5 +37,5 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    """Получать настройки приложения из кэша для оптимизации производительности."""
+    """Функция для получения настроек приложения из кэша для оптимизации производительности."""
     return Settings()

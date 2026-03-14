@@ -1,5 +1,3 @@
-"""Links router for URL shortening operations."""
-
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
 from fastapi.responses import RedirectResponse
@@ -17,22 +15,22 @@ router = APIRouter(prefix="/links", tags=["Links"])
 
 
 def get_link_service(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db), 
     cache: CacheService = Depends(get_cache_service)
 ) -> LinkService:
-    """Dependency for LinkService."""
+    """Зависимость для получения экземпляра LinkService с доступом к базе данных и кэшу."""     
     return LinkService(db, cache)
 
 
 def link_to_response(link, base_url: str) -> LinkResponse:
-    """Convert Link model to LinkResponse."""
-    effective_code = link.custom_alias or link.short_code
+    """Преобразует модель Link в LinkResponse."""
+    effective_code = link.custom_alias or link.short_code # Используем custom_alias, если он есть, иначе short_code
     return LinkResponse(
         id=link.id,
         original_url=link.original_url,
         short_code=link.short_code,
         custom_alias=link.custom_alias,
-        short_url=f"{base_url}/{effective_code}",
+        short_url=f"{base_url}/{effective_code}", # Полный короткий URL
         created_at=link.created_at,
         expires_at=link.expires_at,
         is_active=link.is_active,
@@ -49,14 +47,7 @@ async def create_short_link(
     link_service: LinkService = Depends(get_link_service)
 ):
     """
-    Create a shortened URL.
-    
-    - **original_url**: The original URL to shorten (required)
-    - **custom_alias**: Optional custom short code
-    - **expires_at**: Optional expiration datetime
-    - **project**: Optional project name for grouping
-    
-    Works for both authenticated and anonymous users.
+    Создает короткую ссылку для предоставленного оригинального URL.
     """
     base_url = get_base_url(request)
     
@@ -64,7 +55,8 @@ async def create_short_link(
         link = await link_service.create_link(link_data, current_user, base_url)
         return link_to_response(link, base_url)
     except ValueError as e:
-        raise HTTPException(
+        raise HTTPException( 
+            # Если данные невалидные (например, URL не начинается с http:// или https://), возвращаем 400 Bad Request
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
@@ -77,9 +69,7 @@ async def search_links(
     link_service: LinkService = Depends(get_link_service)
 ):
     """
-    Search for links by original URL.
-    
-    - **original_url**: The original URL to search for
+    Поиск ссылок по оригинальному URL.
     """
     base_url = get_base_url(request)
     
@@ -96,15 +86,7 @@ async def get_link_stats(
     link_service: LinkService = Depends(get_link_service)
 ):
     """
-    Get statistics for a shortened link.
-    
-    - **short_code**: The short code or custom alias
-    
-    Returns:
-    - Original URL
-    - Creation date
-    - Click count
-    - Last accessed date
+    Получение статистики по короткой ссылке, включая количество кликов, дату последнего доступа и т.д.
     """
     link = await link_service.get_link_stats(short_code)
     
@@ -137,14 +119,7 @@ async def update_link(
     link_service: LinkService = Depends(get_link_service)
 ):
     """
-    Update a shortened link.
-    
-    Requires authentication. Only the link owner can update.
-    
-    - **original_url**: New original URL (optional)
-    - **custom_alias**: New custom alias (optional)
-    - **expires_at**: New expiration datetime (optional)
-    - **project**: New project name (optional)
+    Обновляет данные короткой ссылки.
     """
     base_url = get_base_url(request)
     
@@ -175,9 +150,7 @@ async def delete_link(
     link_service: LinkService = Depends(get_link_service)
 ):
     """
-    Delete a shortened link.
-    
-    Requires authentication. Only the link owner can delete.
+    Удаляет короткую ссылку.
     """
     try:
         deleted = await link_service.delete_link(short_code, current_user)
@@ -202,9 +175,7 @@ async def get_my_links(
     link_service: LinkService = Depends(get_link_service)
 ):
     """
-    Get all links created by the current user.
-    
-    Requires authentication.
+    Получение всех ссылок, принадлежащих текущему пользователю.
     """
     base_url = get_base_url(request)
     
@@ -220,9 +191,7 @@ async def get_links_by_project(
     link_service: LinkService = Depends(get_link_service)
 ):
     """
-    Get all links in a project.
-    
-    If authenticated, returns only user's links in the project.
+    Получение всех ссылок, принадлежащих проекту.
     """
     base_url = get_base_url(request)
     
@@ -230,60 +199,3 @@ async def get_links_by_project(
     return [link_to_response(link, base_url) for link in links]
 
 
-@router.post("/admin/cleanup/expired", tags=["Admin"])
-async def cleanup_expired(
-    current_user: User = Depends(current_active_user),
-    link_service: LinkService = Depends(get_link_service)
-):
-    """
-    Remove expired links from database.
-    
-    Requires authentication. (In production, should be admin-only)
-    """
-    deleted = await link_service.cleanup_expired_links()
-    return {"deleted": deleted, "message": f"Deleted {deleted} expired links"}
-
-
-@router.post("/admin/cleanup/unused", tags=["Admin"])
-async def cleanup_unused(
-    days: int = Query(90, ge=1, description="Days of inactivity threshold"),
-    current_user: User = Depends(current_active_user),
-    link_service: LinkService = Depends(get_link_service)
-):
-    """
-    Remove links unused for specified days.
-    
-    Requires authentication. (In production, should be admin-only)
-    """
-    deleted = await link_service.cleanup_unused_links(days)
-    return {"deleted": deleted, "message": f"Deleted {deleted} unused links"}
-
-
-@router.get("/admin/expired-history", response_model=List[LinkStats], tags=["Admin"])
-async def get_expired_history(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=1000),
-    current_user: User = Depends(current_active_user),
-    link_service: LinkService = Depends(get_link_service)
-):
-    """
-    Get history of expired links.
-    
-    Requires authentication. (In production, should be admin-only)
-    """
-    links = await link_service.get_expired_links_history(skip, limit)
-    return [
-        LinkStats(
-            id=link.id,
-            original_url=link.original_url,
-            short_code=link.short_code,
-            custom_alias=link.custom_alias,
-            click_count=link.click_count,
-            created_at=link.created_at,
-            last_accessed_at=link.last_accessed_at,
-            expires_at=link.expires_at,
-            is_active=link.is_active,
-            project=link.project,
-        )
-        for link in links
-    ]

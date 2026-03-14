@@ -1,5 +1,3 @@
-"""Authentication service using FastAPI Users."""
-
 import uuid
 import logging
 from typing import Optional
@@ -21,37 +19,33 @@ logger = logging.getLogger(__name__)
 
 
 async def get_user_db(session: AsyncSession = Depends(get_db)):
-    """Get SQLAlchemy user database adapter."""
+    """Получает экземпляр SQLAlchemyUserDatabase для работы с пользователями в базе данных."""
     yield SQLAlchemyUserDatabase(session, User)
 
 
 class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
-    """User manager for handling user-related operations."""
+    """User manager для управления операциями с пользователями (регистрация, аутентификация и т.д.)"""
     
+    # Секретные ключи для генерации токенов сброса пароля и верификации
     reset_password_token_secret = settings.secret_key
     verification_token_secret = settings.secret_key
 
-    async def validate_password(
-        self, password: str, user: schemas.UC
-    ) -> None:
-        """Validate password on registration."""
+    async def validate_password(self, password: str, user: schemas.UC) -> None:
+        """Проверяет валидность пароля при регистрации или смене пароля.
+        В данном случае, просто проверяем минимальную длину пароля."""
         if len(password) < 6:
             raise HTTPException(status_code=400, detail="Password too short")
 
     async def on_after_register(self, user: User, request: Optional[Request] = None):
-        """Callback after user registration."""
+        """Callback после успешной регистрации пользователя, логирует информацию о новом пользователе."""
         logger.info(f"User {user.id} has registered.")
 
-    async def on_after_forgot_password(
-        self, user: User, token: str, request: Optional[Request] = None
-    ):
-        """Callback after forgot password request."""
+    async def on_after_forgot_password(self, user: User, token: str, request: Optional[Request] = None):
+        """Callback после запроса на сброс пароля, логирует информацию о пользователе и токене сброса пароля."""
         logger.info(f"User {user.id} has forgot their password. Reset token: {token}")
 
-    async def on_after_request_verify(
-        self, user: User, token: str, request: Optional[Request] = None
-    ):
-        """Callback after verification request."""
+    async def on_after_request_verify(self, user: User, token: str, request: Optional[Request] = None):
+        """Callback после запроса на верификацию email, логирует информацию о пользователе и токене верификации."""
         logger.info(f"Verification requested for user {user.id}. Verification token: {token}")
     
     async def create(
@@ -60,7 +54,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         safe: bool = False,
         request: Optional[Request] = None,
     ) -> User:
-        """Create a user, checking for duplicate username."""
+        """Переопределение метода create для добавления проверки на уникальность имени пользователя при регистрации нового пользователя."""
         # Check for duplicate username
         existing_user = await self.user_db.session.execute(
             select(User).where(User.username == user_create.username)
@@ -72,16 +66,16 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
 
 
 async def get_user_manager(user_db: SQLAlchemyUserDatabase = Depends(get_user_db)):
-    """Get user manager instance."""
+    """Получает экземпляр UserManager для управления пользователями, используя SQLAlchemyUserDatabase в качестве источника данных."""
     yield UserManager(user_db)
 
 
-# Bearer transport for JWT tokens
+# Bearer transport для JWT tokens - используется для передачи токенов в заголовке Authorization
 bearer_transport = BearerTransport(tokenUrl="auth/jwt/login")
 
 
 def get_jwt_strategy() -> JWTStrategy:
-    """Get JWT strategy for authentication."""
+    """Стратегия JWT для аутентификации, использует секретный ключ и время жизни токена из настроек."""
     return JWTStrategy(
         secret=settings.secret_key,
         lifetime_seconds=settings.access_token_expire_minutes * 60
@@ -95,11 +89,11 @@ auth_backend = AuthenticationBackend(
     get_strategy=get_jwt_strategy,
 )
 
-# FastAPI Users instance
+# FastAPI Users инстанс для управления пользователями и аутентификацией, использующий UserManager и JWT authentication backend
 fastapi_users = FastAPIUsers[User, uuid.UUID](get_user_manager, [auth_backend])
 
-# Current active user dependency
+# Декоратор для получения текущего активного пользователя, который требует аутентификации и проверяет, что пользователь активен
 current_active_user = fastapi_users.current_user(active=True)
 
-# Optional current user (for endpoints that work both with and without auth)
+# Для поддержки как аутентифицированных, так и неаутентифицированных пользователей в некоторых эндпоинтах, можно использовать current_user с optional=True
 current_user_optional = fastapi_users.current_user(active=True, optional=True)

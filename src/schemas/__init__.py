@@ -1,5 +1,3 @@
-"""Schemas package initialization."""
-
 from src.schemas.user import (
     UserCreate,
     UserRead,

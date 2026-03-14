@@ -1,5 +1,3 @@
-"""Unit tests for authentication service (FastAPI Users)."""
-
 import pytest
 from unittest.mock import MagicMock
 import logging
@@ -14,40 +12,39 @@ settings = get_settings()
 
 
 class TestJWTStrategy:
-    """Tests for JWT strategy configuration."""
+    """Тесты для JWT стратегии аутентификации."""
     
     def test_jwt_strategy_creation(self):
-        """Test that JWT strategy is created correctly."""
+        """Тест создания JWT стратегии."""
         strategy = get_jwt_strategy()
         
         assert strategy is not None
         assert strategy.lifetime_seconds == settings.access_token_expire_minutes * 60
     
     def test_jwt_strategy_uses_secret(self):
-        """Test that JWT strategy uses the configured secret."""
+        """Тест того, что JWT стратегия использует сконфигурированный секрет."""
         strategy = get_jwt_strategy()
         
-        # The strategy should use our configured secret
         assert hasattr(strategy, 'secret')
 
 
 class TestUserManager:
-    """Tests for UserManager class."""
+    """Тесты для UserManager класса"""
     
     def test_user_manager_secrets(self):
-        """Test that UserManager has correct token secrets."""
+        """Тест того, что UserManager имеет правильные секреты токенов."""
         assert UserManager.reset_password_token_secret == settings.secret_key
         assert UserManager.verification_token_secret == settings.secret_key
     
     @pytest.mark.asyncio
     async def test_on_after_register_logs(self, caplog):
-        """Test that registration callback logs user ID."""
+        """Тест того, что обратный вызов регистрации логирует ID пользователя."""
         caplog.set_level(logging.INFO)
         
         mock_user_db = MagicMock()
         manager = UserManager(mock_user_db)
         
-        # Create mock user
+        # Создаем мок пользователя
         mock_user = MagicMock()
         mock_user.id = "test-uuid-123"
         
@@ -58,18 +55,18 @@ class TestUserManager:
 
 
 class TestAuthConfiguration:
-    """Tests for authentication configuration."""
+    """Тесты аутентификации."""
     
     def test_settings_has_secret_key(self):
-        """Test that settings has secret key configured."""
+        """Тест того, что в настройках есть секретный ключ для JWT."""
         assert settings.secret_key is not None
         assert len(settings.secret_key) > 0
     
     def test_settings_has_algorithm(self):
-        """Test that settings has algorithm configured."""
+        """Тест того, что настройки содержат сконфигурированный алгоритм."""
         assert settings.algorithm is not None
         assert settings.algorithm == "HS256"
     
     def test_access_token_expire_minutes(self):
-        """Test that access token expiration is configured."""
+        """Тест того, что истечение срока действия токена доступа установлено."""
         assert settings.access_token_expire_minutes > 0

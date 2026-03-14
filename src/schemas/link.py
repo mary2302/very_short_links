@@ -1,5 +1,3 @@
-"""Link schemas for request/response validation."""
-
 import uuid
 from datetime import datetime
 from typing import Optional, List
@@ -7,20 +5,20 @@ from pydantic import BaseModel, Field, HttpUrl, field_validator
 
 
 class LinkBase(BaseModel):
-    """Base link schema."""
+    """Базовая схема для ссылки."""
     original_url: str = Field(..., max_length=2048)
     
     @field_validator("original_url")
     @classmethod
     def validate_url(cls, v: str) -> str:
-        """Validate that the URL is properly formatted."""
+        """Проверяет, что URL правильно отформатирован."""
         if not v.startswith(("http://", "https://")):
             raise ValueError("URL must start with http:// or https://")
         return v
 
 
 class LinkCreate(LinkBase):
-    """Schema for creating a new link."""
+    """Schema для создания новой ссылки."""
     custom_alias: Optional[str] = Field(None, min_length=3, max_length=100)
     expires_at: Optional[datetime] = None
     project: Optional[str] = Field(None, max_length=100)
@@ -28,7 +26,7 @@ class LinkCreate(LinkBase):
     @field_validator("custom_alias")
     @classmethod
     def validate_custom_alias(cls, v: Optional[str]) -> Optional[str]:
-        """Validate custom alias contains only allowed characters."""
+        """валидирует, что custom_alias содержит только разрешенные символы."""
         if v is None:
             return v
         if not v.replace("-", "").replace("_", "").isalnum():
@@ -37,7 +35,7 @@ class LinkCreate(LinkBase):
 
 
 class LinkUpdate(BaseModel):
-    """Schema for updating a link."""
+    """Schema для обновления существующей ссылки."""
     original_url: Optional[str] = Field(None, max_length=2048)
     custom_alias: Optional[str] = Field(None, min_length=3, max_length=100)
     expires_at: Optional[datetime] = None
@@ -46,7 +44,7 @@ class LinkUpdate(BaseModel):
     @field_validator("original_url")
     @classmethod
     def validate_url(cls, v: Optional[str]) -> Optional[str]:
-        """Validate that the URL is properly formatted."""
+        """валидирует, что URL начинается с http:// или https://"""
         if v is None:
             return v
         if not v.startswith(("http://", "https://")):
@@ -55,7 +53,7 @@ class LinkUpdate(BaseModel):
 
 
 class LinkResponse(BaseModel):
-    """Schema for link response."""
+    """Schema для ответа"""
     id: int
     original_url: str
     short_code: str
@@ -72,7 +70,7 @@ class LinkResponse(BaseModel):
 
 
 class LinkStats(BaseModel):
-    """Schema for link statistics."""
+    """Schema ддля статистики ссылки."""
     id: int
     original_url: str
     short_code: str
@@ -89,13 +87,13 @@ class LinkStats(BaseModel):
 
 
 class LinkSearchResult(BaseModel):
-    """Schema for link search results."""
+    """Schema для результатов поиска ссылок."""
     links: List[LinkResponse]
     total: int
 
 
 class ExpiredLinkInfo(BaseModel):
-    """Schema for expired link information."""
+    """Schema для информации об истекших ссылках."""
     id: int
     original_url: str
     short_code: str

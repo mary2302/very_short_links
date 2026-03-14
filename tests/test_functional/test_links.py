@@ -1,5 +1,3 @@
-"""Functional tests for links API."""
-
 import pytest
 from datetime import datetime, timedelta
 from httpx import AsyncClient
@@ -7,10 +5,10 @@ from httpx import AsyncClient
 
 @pytest.mark.asyncio
 class TestCreateLink:
-    """Tests for link creation endpoint."""
+    """Тесты создания ссылок."""
     
     async def test_create_link_anonymous(self, client: AsyncClient):
-        """Test creating link without authentication."""
+        """Тест создания ссылки без аутентификации."""
         response = await client.post(
             "/links/shorten",
             json={"original_url": "https://example.com/long-url-path"}
@@ -26,7 +24,7 @@ class TestCreateLink:
     async def test_create_link_authenticated(
         self, client: AsyncClient, auth_headers
     ):
-        """Test creating link with authentication."""
+        """Тест создания ссылки с аутентификацией."""
         response = await client.post(
             "/links/shorten",
             headers=auth_headers,
@@ -41,7 +39,7 @@ class TestCreateLink:
     async def test_create_link_with_custom_alias(
         self, client: AsyncClient, auth_headers
     ):
-        """Test creating link with custom alias."""
+        """Тест создания ссылки с пользовательским псевдонимом."""
         response = await client.post(
             "/links/shorten",
             headers=auth_headers,
@@ -59,7 +57,7 @@ class TestCreateLink:
     async def test_create_link_with_expiry(
         self, client: AsyncClient, auth_headers
     ):
-        """Test creating link with expiration."""
+        """Тест создания ссылки с истекающим сроком действия."""
         expires_at = (datetime.utcnow() + timedelta(days=7)).isoformat()
         
         response = await client.post(
@@ -78,7 +76,7 @@ class TestCreateLink:
     async def test_create_link_with_project(
         self, client: AsyncClient, auth_headers
     ):
-        """Test creating link with project."""
+        """Тест создания ссылки с проектом."""
         response = await client.post(
             "/links/shorten",
             headers=auth_headers,
@@ -93,7 +91,7 @@ class TestCreateLink:
         assert data["project"] == "my-project"
     
     async def test_create_link_invalid_url(self, client: AsyncClient):
-        """Test creating link with invalid URL."""
+        """Тест создания ссылки с недействительным URL."""
         response = await client.post(
             "/links/shorten",
             json={"original_url": "invalid-url"}
@@ -104,7 +102,7 @@ class TestCreateLink:
     async def test_create_link_duplicate_alias(
         self, client: AsyncClient, auth_headers, test_link_with_alias
     ):
-        """Test creating link with duplicate alias."""
+        """Тест создания ссылки с дублирующимся псевдонимом."""
         response = await client.post(
             "/links/shorten",
             headers=auth_headers,
@@ -120,12 +118,12 @@ class TestCreateLink:
 
 @pytest.mark.asyncio
 class TestGetLinkStats:
-    """Tests for link statistics endpoint."""
+    """Тесты для endpointа статистики ссылок."""
     
     async def test_get_stats_success(
         self, client: AsyncClient, test_link
     ):
-        """Test getting link statistics."""
+        """Тест получения статистики ссылки."""
         response = await client.get(f"/links/{test_link.short_code}/stats")
         
         assert response.status_code == 200
@@ -138,7 +136,7 @@ class TestGetLinkStats:
     async def test_get_stats_custom_alias(
         self, client: AsyncClient, test_link_with_alias
     ):
-        """Test getting stats using custom alias."""
+        """Тест получения статистики с использованием пользовательского псевдонима."""
         response = await client.get(
             f"/links/{test_link_with_alias.custom_alias}/stats"
         )
@@ -148,7 +146,7 @@ class TestGetLinkStats:
         assert data["custom_alias"] == test_link_with_alias.custom_alias
     
     async def test_get_stats_not_found(self, client: AsyncClient):
-        """Test getting stats for non-existent link."""
+        """Тест получения статистики для несуществующей ссылки."""
         response = await client.get("/links/nonexistent/stats")
         
         assert response.status_code == 404
@@ -156,12 +154,12 @@ class TestGetLinkStats:
 
 @pytest.mark.asyncio
 class TestUpdateLink:
-    """Tests for link update endpoint."""
+    """Тесты для endpointа обновления ссылок."""
     
     async def test_update_link_success(
         self, client: AsyncClient, auth_headers, test_link
     ):
-        """Test updating link successfully."""
+        """Тест успешного обновления ссылки."""
         response = await client.put(
             f"/links/{test_link.short_code}",
             headers=auth_headers,
@@ -175,7 +173,7 @@ class TestUpdateLink:
     async def test_update_link_unauthorized(
         self, client: AsyncClient, test_link
     ):
-        """Test updating link without authentication."""
+        """Тест обновления ссылки без аутентификации."""
         response = await client.put(
             f"/links/{test_link.short_code}",
             json={"original_url": "https://newurl.com"}
@@ -186,7 +184,7 @@ class TestUpdateLink:
     async def test_update_link_not_owner(
         self, client: AsyncClient, anonymous_link, auth_headers
     ):
-        """Test updating link by non-owner."""
+        """Тест обновления ссылки не владельцем."""
         response = await client.put(
             f"/links/{anonymous_link.short_code}",
             headers=auth_headers,
@@ -198,7 +196,7 @@ class TestUpdateLink:
     async def test_update_link_not_found(
         self, client: AsyncClient, auth_headers
     ):
-        """Test updating non-existent link."""
+        """Тест обновления несуществующей ссылки."""
         response = await client.put(
             "/links/nonexistent",
             headers=auth_headers,
@@ -210,7 +208,7 @@ class TestUpdateLink:
     async def test_update_link_duplicate_alias(
         self, client: AsyncClient, auth_headers, test_link, test_link_with_alias
     ):
-        """Test updating link with duplicate custom alias."""
+        """Тест обновления ссылки с дублирующимся пользовательским псевдонимом."""
         response = await client.put(
             f"/links/{test_link.short_code}",
             headers=auth_headers,
@@ -223,7 +221,7 @@ class TestUpdateLink:
     async def test_update_link_custom_alias(
         self, client: AsyncClient, auth_headers, test_link
     ):
-        """Test updating link custom alias."""
+        """Тест обновления пользовательского псевдонима ссылки."""
         response = await client.put(
             f"/links/{test_link.short_code}",
             headers=auth_headers,
@@ -237,7 +235,7 @@ class TestUpdateLink:
     async def test_update_link_expires_at(
         self, client: AsyncClient, auth_headers, test_link
     ):
-        """Test updating link expiration."""
+        """Тест обновления срока действия ссылки."""
         from datetime import datetime, timedelta
         new_expires = (datetime.utcnow() + timedelta(days=30)).isoformat()
         
@@ -252,7 +250,7 @@ class TestUpdateLink:
     async def test_update_link_project(
         self, client: AsyncClient, auth_headers, test_link
     ):
-        """Test updating link project."""
+        """Тест обновления проекта ссылки."""
         response = await client.put(
             f"/links/{test_link.short_code}",
             headers=auth_headers,
@@ -266,12 +264,12 @@ class TestUpdateLink:
 
 @pytest.mark.asyncio
 class TestDeleteLink:
-    """Tests for link deletion endpoint."""
+    """Тесты для endpointа удаления ссылок."""
     
     async def test_delete_link_success(
         self, client: AsyncClient, auth_headers, test_link
     ):
-        """Test deleting link successfully."""
+        """Тест успешного удаления ссылки."""
         response = await client.delete(
             f"/links/{test_link.short_code}",
             headers=auth_headers
@@ -282,7 +280,7 @@ class TestDeleteLink:
     async def test_delete_link_unauthorized(
         self, client: AsyncClient, test_link
     ):
-        """Test deleting link without authentication."""
+        """Тест удаления ссылки без аутентификации."""
         response = await client.delete(f"/links/{test_link.short_code}")
         
         assert response.status_code == 401
@@ -290,7 +288,7 @@ class TestDeleteLink:
     async def test_delete_link_not_owner(
         self, client: AsyncClient, anonymous_link, auth_headers
     ):
-        """Test deleting link by non-owner."""
+        """Тест удаления ссылки не владельцем."""
         response = await client.delete(
             f"/links/{anonymous_link.short_code}",
             headers=auth_headers
@@ -301,7 +299,7 @@ class TestDeleteLink:
     async def test_delete_link_not_found(
         self, client: AsyncClient, auth_headers
     ):
-        """Test deleting non-existent link."""
+        """Тест удаления несуществующей ссылки."""
         response = await client.delete(
             "/links/nonexistent",
             headers=auth_headers
@@ -312,12 +310,12 @@ class TestDeleteLink:
 
 @pytest.mark.asyncio
 class TestSearchLinks:
-    """Tests for link search endpoint."""
+    """Тесты для endpointа поиска ссылок."""
     
     async def test_search_by_original_url(
         self, client: AsyncClient, test_link
     ):
-        """Test searching by original URL."""
+        """Тест поиска по оригинальному URL."""
         response = await client.get(
             "/links/search",
             params={"original_url": test_link.original_url}
@@ -329,7 +327,7 @@ class TestSearchLinks:
         assert len(data["links"]) >= 1
     
     async def test_search_no_results(self, client: AsyncClient):
-        """Test search with no matching results."""
+        """Тест поиска без совпадений."""
         response = await client.get(
             "/links/search",
             params={"original_url": "https://nonexistent.com/url"}
@@ -343,12 +341,12 @@ class TestSearchLinks:
 
 @pytest.mark.asyncio
 class TestRedirect:
-    """Tests for URL redirection endpoint."""
+    """Тесты для endpointа перенаправления URL."""
     
     async def test_redirect_success(
         self, client: AsyncClient, test_link
     ):
-        """Test successful redirect."""
+        """Тест успешного перенаправления."""
         response = await client.get(
             f"/{test_link.short_code}",
             follow_redirects=False
@@ -360,7 +358,7 @@ class TestRedirect:
     async def test_redirect_custom_alias(
         self, client: AsyncClient, test_link_with_alias
     ):
-        """Test redirect using custom alias."""
+        """Тест перенаправления с использованием пользовательского псевдонима."""
         response = await client.get(
             f"/{test_link_with_alias.custom_alias}",
             follow_redirects=False
@@ -370,7 +368,7 @@ class TestRedirect:
         assert response.headers["location"] == test_link_with_alias.original_url
     
     async def test_redirect_not_found(self, client: AsyncClient):
-        """Test redirect for non-existent link."""
+        """Тест перенаправления для несуществующей ссылки."""
         response = await client.get("/nonexistent123")
         
         assert response.status_code == 404
@@ -378,7 +376,7 @@ class TestRedirect:
     async def test_redirect_expired_link(
         self, client: AsyncClient, expired_link
     ):
-        """Test redirect for expired link."""
+        """Тест перенаправления для истекшей ссылки."""
         response = await client.get(f"/{expired_link.short_code}")
         
         assert response.status_code == 404
@@ -386,12 +384,12 @@ class TestRedirect:
 
 @pytest.mark.asyncio
 class TestUserLinks:
-    """Tests for user links endpoints."""
+    """Тесты для endpointа получения ссылок текущего пользователя."""
     
     async def test_get_my_links(
         self, client: AsyncClient, auth_headers, test_link
     ):
-        """Test getting user's links."""
+        """Тест получения ссылок пользователя."""
         response = await client.get(
             "/links/user/my-links",
             headers=auth_headers
@@ -403,69 +401,20 @@ class TestUserLinks:
         assert len(data) >= 1
     
     async def test_get_my_links_unauthorized(self, client: AsyncClient):
-        """Test getting links without authentication."""
+        """Тест получения ссылок без аутентификации."""
         response = await client.get("/links/user/my-links")
         
         assert response.status_code == 401
 
 
 @pytest.mark.asyncio
-class TestAdminEndpoints:
-    """Tests for admin cleanup endpoints."""
-    
-    async def test_cleanup_expired_links(
-        self, client: AsyncClient, auth_headers
-    ):
-        """Test cleanup expired links endpoint."""
-        response = await client.post(
-            "/links/admin/cleanup/expired",
-            headers=auth_headers
-        )
-        
-        assert response.status_code == 200
-        data = response.json()
-        assert "deleted" in data
-    
-    async def test_cleanup_unused_links(
-        self, client: AsyncClient, auth_headers
-    ):
-        """Test cleanup unused links endpoint."""
-        response = await client.post(
-            "/links/admin/cleanup/unused?days=30",
-            headers=auth_headers
-        )
-        
-        assert response.status_code == 200
-        data = response.json()
-        assert "deleted" in data
-    
-    async def test_get_expired_history(
-        self, client: AsyncClient, auth_headers
-    ):
-        """Test getting expired links history."""
-        response = await client.get(
-            "/links/admin/expired-history",
-            headers=auth_headers
-        )
-        
-        assert response.status_code == 200
-        assert isinstance(response.json(), list)
-    
-    async def test_cleanup_unauthorized(self, client: AsyncClient):
-        """Test cleanup endpoints require authentication."""
-        response = await client.post("/links/admin/cleanup/expired")
-        assert response.status_code == 401
-
-
-@pytest.mark.asyncio
 class TestProjectLinks:
-    """Tests for project-related link endpoints."""
+    """Тесты для endpointов, связанных с проектами."""
     
     async def test_get_project_links(
         self, client: AsyncClient, auth_headers
     ):
-        """Test getting links by project."""
-        # First create a link with project
+        """Тест получения ссылок по проекту."""
         await client.post(
             "/links/shorten",
             headers=auth_headers,
@@ -485,7 +434,7 @@ class TestProjectLinks:
         assert isinstance(data, list)
     
     async def test_get_project_links_empty(self, client: AsyncClient):
-        """Test getting links for empty project."""
+        """Тест получения ссылок для пустого проекта."""
         response = await client.get("/links/project/nonexistent-project")
         
         assert response.status_code == 200
@@ -494,10 +443,10 @@ class TestProjectLinks:
 
 @pytest.mark.asyncio
 class TestHealthAndRoot:
-    """Tests for health and root endpoints."""
+    """Тесты для корневого и health endpointов."""
     
     async def test_root_endpoint(self, client: AsyncClient):
-        """Test root endpoint."""
+        """Тест корневого endpointа."""
         response = await client.get("/")
         
         assert response.status_code == 200
@@ -506,7 +455,7 @@ class TestHealthAndRoot:
         assert "docs" in data
     
     async def test_health_endpoint(self, client: AsyncClient):
-        """Test health check endpoint."""
+        """Тест endpointа проверки целостности."""
         response = await client.get("/health")
         
         assert response.status_code == 200

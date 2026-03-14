@@ -1,6 +1,5 @@
-"""Link model for URL shortening."""
+"""Link модель для хранения сокращенных URL."""
 
-import uuid
 from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Uuid
 from sqlalchemy.orm import relationship
@@ -8,12 +7,12 @@ from src.database import Base
 
 
 def utc_now():
-    """Return current UTC time."""
+    """Возвращает текущее время в UTC."""
     return datetime.now(timezone.utc)
 
 
 class Link(Base):
-    """Link model for storing shortened URLs."""
+    """Link модель для хранения сокращенных URL."""
     
     __tablename__ = "links"
     
@@ -22,7 +21,7 @@ class Link(Base):
     short_code = Column(String(50), unique=True, index=True, nullable=False)
     custom_alias = Column(String(100), unique=True, nullable=True, index=True)
     
-    # Statistics
+    # Статистика доступа
     click_count = Column(Integer, default=0)
     last_accessed_at = Column(DateTime(timezone=True), nullable=True)
     
@@ -31,26 +30,27 @@ class Link(Base):
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
     expires_at = Column(DateTime(timezone=True), nullable=True)
     
-    # Status
+    # Статус активности
     is_active = Column(Boolean, default=True)
     
-    # Owner relationship (nullable for anonymous users)
+    # Связь с владельцем (nullable для анонимных пользователей)
     owner_id = Column(Uuid, ForeignKey("users.id"), nullable=True)
     owner = relationship("User", back_populates="links")
     
-    # Project grouping (optional feature)
+    # Группировка по проектам
     project = Column(String(100), nullable=True, index=True)
     
+    # Представление для отладки
     def __repr__(self):
         return f"<Link(id={self.id}, short_code={self.short_code}, original_url={self.original_url[:50]}...)>"
     
     @property
     def is_expired(self) -> bool:
-        """Check if the link has expired."""
+        """Проверяет, истек ли срок действия ссылки. Если expires_at не установлен, ссылка не считается истекшей."""
         if self.expires_at is None:
             return False
         now = datetime.now(timezone.utc)
-        # Handle both naive and aware datetimes
+        # Если expires_at не содержит информацию о часовом поясе, считаем его в UTC
         expires = self.expires_at
         if expires.tzinfo is None:
             expires = expires.replace(tzinfo=timezone.utc)
@@ -58,5 +58,5 @@ class Link(Base):
     
     @property
     def effective_short_code(self) -> str:
-        """Return custom alias if set, otherwise short_code."""
+        """Возвращает пользовательский псевдоним, если он его установил, иначе короткий код."""
         return self.custom_alias or self.short_code

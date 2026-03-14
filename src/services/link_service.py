@@ -1,5 +1,3 @@
-"""Link service for managing shortened URLs."""
-
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 from sqlalchemy import select, delete, or_, and_
@@ -16,10 +14,10 @@ settings = get_settings()
 
 
 class LinkService:
-    """Service for link management operations."""
+    """Сервис для управления сокращенными URL: создание, получение, обновление, удаление и статистика ссылок."""
     
     def __init__(self, db: AsyncSession, cache: CacheService):
-        """Initialize link service."""
+        """Инициализация сервиса ссылок."""
         self.db = db
         self.cache = cache
     
@@ -29,17 +27,17 @@ class LinkService:
         owner: Optional[User] = None,
         base_url: str = "http://localhost:8000"
     ) -> Link:
-        """Create a new shortened link."""
-        # Generate unique short code
+        """Создание новой сокращенной ссылки."""
+        # Генерация уникального короткого кода для ссылки
         short_code = generate_short_code()
         
-        # Check if custom alias is unique
+        # Проверка на уникальность пользовательского псевдонима
         if link_data.custom_alias:
             existing = await self.get_link_by_code(link_data.custom_alias)
             if existing:
                 raise ValueError("Custom alias already exists")
         
-        # Ensure short code is unique
+        # Проверка уникальности короткого кода
         while await self.get_link_by_code(short_code):
             short_code = generate_short_code()
         
@@ -51,24 +49,32 @@ class LinkService:
             project=link_data.project,
             owner_id=owner.id if owner else None,
         )
-        
+        # Сохранение ссылки в базе данных
         self.db.add(link)
         await self.db.commit()
         await self.db.refresh(link)
         
-        # Cache the link
+        # Кэширование ссылки для быстрого доступа при последующих запросах
         await self.cache_link(link, base_url)
         
         return link
     
     async def get_link_by_code(self, code: str) -> Optional[Link]:
-        """Get link by short code or custom alias."""
-        # Try cache first
+        """Получение ссылки по короткому коду или пользовательскому псевдониму."""
+        # Попытка получить данные из кэша Redis по короткому коду
         cached = await self.cache.get_link(code)
         if cached:
-            # Still need to get from DB for full object
-            pass
-        
+            # Если данные есть в кэше, возвращаем оригинальный URL из кэша
+            return Link(
+                id=cached["id"],
+                original_url=cached["original_url"],
+                short_code=cached["short_code"],
+                custom_alias=cached["custom_alias"],
+                created_at=datetime.fromisoformat(cached["created_at"]),
+                expires_at=datetime.fromisoformat(cached["expires_at"]) if cached["expires_at"] else None,
+                click_count=cached["click_count"],
+                is_active=cached.get("is_active", True),
+            )
         result = await self.db.execute(
             select(Link).where(
                 or_(Link.short_code == code, Link.custom_alias == code)
@@ -77,19 +83,19 @@ class LinkService:
         return result.scalar_one_or_none()
     
     async def get_link_by_id(self, link_id: int) -> Optional[Link]:
-        """Get link by ID."""
+        """Получение ссылки по ID."""
         result = await self.db.execute(select(Link).where(Link.id == link_id))
         return result.scalar_one_or_none()
     
     async def get_original_url(self, code: str, base_url: str = "http://localhost:8000") -> Optional[str]:
-        """Get original URL and update statistics."""
-        # Try cache first
+        """Получение оригинального URL по короткому коду. Учитывает истечение срока действия и статус ссылки, а также обновляет статистику доступа."""
+        # Попытка получить данные из кэша Redis по короткому коду
         cached = await self.cache.get_link(code)
         if cached:
             original_url = cached.get("original_url")
-            # Update click count in cache
+            # Если данные есть в кэше, увеличиваем счетчик кликов в кэше и обновляем статистику доступа в базе данных асинхронно
             await self.cache.increment_click_count(code)
-            # Update DB asynchronously
+            # Обновляем статистику доступа в базе данных
             link = await self.get_link_by_code(code)
             if link and not link.is_expired and link.is_active:
                 link.click_count += 1
@@ -97,6 +103,7 @@ class LinkService:
                 await self.db.commit()
                 return original_url
         
+        # Если данных нет в кэше, получаем ссылку из базы данных
         link = await self.get_link_by_code(code)
         if link is None:
             return None
@@ -104,12 +111,12 @@ class LinkService:
         if link.is_expired or not link.is_active:
             return None
         
-        # Update statistics
+        # Увеличиваем счетчик кликов и обновляем статистику доступа
         link.click_count += 1
         link.last_accessed_at = datetime.now(timezone.utc)
         await self.db.commit()
         
-        # Cache for future requests
+        # Кэшируем обновленные данные ссылки в Redis для последующих запросов
         await self.cache_link(link, base_url)
         
         return link.original_url
@@ -120,21 +127,21 @@ class LinkService:
         link_data: LinkUpdate,
         user: User
     ) -> Optional[Link]:
-        """Update a link (only by owner)."""
+        """обновляет ссылку (только владельцем)."""
         link = await self.get_link_by_code(code)
         if link is None:
             return None
         
-        # Check ownership
+        #Проверка владения ссылкой
         if link.owner_id != user.id:
             raise PermissionError("You don't have permission to update this link")
         
-        # Update fields
+        #Обновляем поля ссылки
         if link_data.original_url is not None:
             link.original_url = link_data.original_url
         
         if link_data.custom_alias is not None:
-            # Check if new alias is unique
+            #Проверяем уникальность нового пользовательского псевдонима
             existing = await self.get_link_by_code(link_data.custom_alias)
             if existing and existing.id != link.id:
                 raise ValueError("Custom alias already exists")
@@ -150,22 +157,20 @@ class LinkService:
         await self.db.commit()
         await self.db.refresh(link)
         
-        # Invalidate and update cache
+        #Удаляем устаревшие данные из кэша Redis
         await self.cache.delete_link(code)
         
         return link
     
     async def delete_link(self, code: str, user: User) -> bool:
-        """Delete a link (only by owner)."""
+        """Удаляет ссылку (только владельцем)."""
         link = await self.get_link_by_code(code)
         if link is None:
             return False
-        
-        # Check ownership
+    
         if link.owner_id != user.id:
             raise PermissionError("You don't have permission to delete this link")
-        
-        # Delete from cache
+
         await self.cache.delete_link(code)
         if link.custom_alias:
             await self.cache.delete_link(link.custom_alias)
@@ -175,7 +180,7 @@ class LinkService:
         return True
     
     async def search_by_original_url(self, original_url: str) -> List[Link]:
-        """Search links by original URL."""
+        """поиск ссылок по оригинальному URL"""
         result = await self.db.execute(
             select(Link).where(
                 Link.original_url == original_url,
@@ -185,14 +190,14 @@ class LinkService:
         return result.scalars().all()
     
     async def get_link_stats(self, code: str) -> Optional[Link]:
-        """Get link statistics."""
+        """статистика по ссылке (количество кликов и т.д.)"""
         link = await self.get_link_by_code(code)
         if link is None:
             return None
         return link
     
     async def get_user_links(self, user: User, skip: int = 0, limit: int = 100) -> List[Link]:
-        """Get all links for a user."""
+        """Получение всех ссылок, принадлежащих пользователю"""
         result = await self.db.execute(
             select(Link)
             .where(Link.owner_id == user.id)
@@ -200,10 +205,11 @@ class LinkService:
             .limit(limit)
             .order_by(Link.created_at.desc())
         )
-        return result.scalars().all()
+        return result.scalars().all() 
     
     async def cleanup_expired_links(self) -> int:
-        """Remove expired links from database."""
+        """Удаляет все ссылки, срок действия которых истек. 
+        Возвращает количество удаленных ссылок."""
         result = await self.db.execute(
             delete(Link).where(
                 Link.expires_at.isnot(None),
@@ -214,7 +220,9 @@ class LinkService:
         return result.rowcount
     
     async def cleanup_unused_links(self, days: Optional[int] = None) -> int:
-        """Remove links unused for specified days."""
+        """Удаляет ссылки, которые не использовались более указанного количества дней. 
+        Если days не указано, используется значение по умолчанию из настроек. 
+        Возвращает количество удаленных ссылок."""
         if days is None:
             days = settings.unused_link_cleanup_days
         
@@ -232,7 +240,8 @@ class LinkService:
         return result.rowcount
     
     async def get_expired_links_history(self, skip: int = 0, limit: int = 100) -> List[Link]:
-        """Get history of expired links."""
+        """ Получение истории истекших ссылок для админов. 
+        Возвращает список ссылок, срок действия которых истек"""
         result = await self.db.execute(
             select(Link)
             .where(
@@ -246,7 +255,9 @@ class LinkService:
         return result.scalars().all()
     
     async def get_links_by_project(self, project: str, user: Optional[User] = None) -> List[Link]:
-        """Get links grouped by project."""
+        """Получение всех ссылок, принадлежащих проекту. 
+        Если пользователь указан, возвращает только ссылки,
+        принадлежащие этому пользователю в рамках проекта."""
         query = select(Link).where(Link.project == project, Link.is_active == True)
         if user:
             query = query.where(Link.owner_id == user.id)
@@ -254,7 +265,7 @@ class LinkService:
         return result.scalars().all()
     
     async def cache_link(self, link: Link, base_url: str):
-        """Cache link data in Redis."""
+        """Кэширует данные ссылки в Redis"""
         effective_code = link.custom_alias or link.short_code
         link_data = {
             "id": link.id,

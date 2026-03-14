@@ -1,5 +1,3 @@
-"""User schemas for FastAPI Users."""
-
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -8,7 +6,7 @@ from pydantic import Field, EmailStr
 
 
 class UserRead(schemas.BaseUser[uuid.UUID]):
-    """Schema for reading user data."""
+    """Schema для чтения данных пользователя."""
     id: uuid.UUID
     username: str
     email: EmailStr
@@ -17,14 +15,14 @@ class UserRead(schemas.BaseUser[uuid.UUID]):
 
 
 class UserCreate(schemas.BaseUserCreate):
-    """Schema for user registration."""
+    """Schema для регистрации пользователя."""
     username: str = Field(..., min_length=3, max_length=100)
     email: EmailStr
     password: str = Field(..., min_length=6)
 
 
 class UserUpdate(schemas.BaseUserUpdate):
-    """Schema for user update."""
+    """Schema для обновления данных пользователя."""
     username: Optional[str] = Field(None, min_length=3, max_length=100)
     email: Optional[EmailStr] = None
     password: Optional[str] = Field(None, min_length=6)
