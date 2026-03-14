@@ -41,7 +41,7 @@ async def lifespan(app: FastAPI):
 
 # Инициализация FastAPI приложения с указанием обработчика жизненного цикла
 app = FastAPI(
-    title="URL Shortener API",
+    title="Very short links",
     description="A FastAPI service for creating and managing shortened URLs",
     version="1.0.0",
     lifespan=lifespan,
